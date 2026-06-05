@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-export const SERVER_URL = "http://localhost:5000";
+export const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
 
 let socket = null;
 
