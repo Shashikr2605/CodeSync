@@ -6,7 +6,7 @@ let socket = null;
 
 export const getSocket = () => {
     if (!socket) {
-        socket = io(SERVER_URL, { autoConnect: true });
+        socket = io(SERVER_URL, {  transports: ["websocket"], autoConnect: true });
     }
     return socket;
 };
