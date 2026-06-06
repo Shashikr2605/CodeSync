@@ -152,15 +152,15 @@ async function handleRunCode(socket, { code, language, roomId }) {
     let result;
 
     try {
-      result = await runViaWandbox(code, language);
-      console.log("[CodeRunner] Wandbox succeeded");
-    } catch (wandboxErr) {
-      console.warn(`[CodeRunner] Wandbox failed (${wandboxErr.message}), trying Piston…`);
+      result = await runViaPiston(code, language);
+      console.log("[CodeRunner] Piston succeeded");
+    } catch (pistonErr) {
+      console.warn(`[CodeRunner] Piston failed (${pistonErr.message}), trying Wandbox…`);
       try {
-        result = await runViaPiston(code, language);
-        console.log("[CodeRunner] Piston succeeded");
-      } catch (pistonErr) {
-        console.warn(`[CodeRunner] Piston failed (${pistonErr.message}), trying Codex…`);
+        result = await runViaWandbox(code, language);
+        console.log("[CodeRunner] Wandbox succeeded");
+      } catch (wandboxErr) {
+        console.warn(`[CodeRunner] Wandbox failed (${wandboxErr.message}), trying Codex…`);
         result = await runViaCodex(code, language);
         console.log("[CodeRunner] Codex succeeded");
       }
