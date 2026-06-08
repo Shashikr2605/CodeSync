@@ -83,7 +83,7 @@ async function runViaWandbox(sourceCode, language) {
 }
 
 // ── Piston execution ─────────────────────────────────────────────────────────
-async function runViaPiston(sourceCode, language) {
+async function runViaPiston(sourceCode, language, stdin = stdin) {
   const lang = PISTON_LANGS[language];
   const res  = await axios.post(
     PISTON_URL,
@@ -113,14 +113,14 @@ async function runViaPiston(sourceCode, language) {
 }
 
 // ── Codex fallback ───────────────────────────────────────────────────────────
-async function runViaCodex(sourceCode, language) {
+async function runViaCodex(sourceCode, language, stdin = "") {
   const lang = CODEX_LANGS[language];
 
   // Codex expects application/x-www-form-urlencoded
   const body = new URLSearchParams();
   body.append("code",     sourceCode);
   body.append("language", lang);
-  body.append("input",    "");
+  body.append("input", "stdin");
 
   const res = await axios.post(CODEX_URL, body.toString(), {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -137,7 +137,7 @@ async function runViaCodex(sourceCode, language) {
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
-async function handleRunCode(socket, { code, language, roomId }) {
+async function handleRunCode(socket, { code, language, roomId, stdin = ""}) {
   if (!WANDBOX_LANGS[language]) {
     return socket.emit("code:error", { message: `Unsupported language: ${language}` });
   }
@@ -152,16 +152,16 @@ async function handleRunCode(socket, { code, language, roomId }) {
     let result;
 
     try {
-      result = await runViaPiston(code, language);
+      result = await runViaPiston(code, language, stdin);
       console.log("[CodeRunner] Piston succeeded");
     } catch (pistonErr) {
       console.warn(`[CodeRunner] Piston failed (${pistonErr.message}), trying Wandbox…`);
       try {
-        result = await runViaWandbox(code, language);
+        result = await runViaWandbox(code, language, stdin);
         console.log("[CodeRunner] Wandbox succeeded");
       } catch (wandboxErr) {
         console.warn(`[CodeRunner] Wandbox failed (${wandboxErr.message}), trying Codex…`);
-        result = await runViaCodex(code, language);
+        result = await runViaCodex(code, language, stdin);
         console.log("[CodeRunner] Codex succeeded");
       }
     }
