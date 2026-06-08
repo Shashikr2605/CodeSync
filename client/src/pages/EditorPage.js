@@ -26,6 +26,7 @@ export default function EditorPage({
   // Code runner props
   runCode, output, isRunning, codeError, clearOutput,
 }) {
+  const [stdin, setStdin] = useState("");
   const [sidebarTab,   setSidebarTab]   = useState("chat"); // "chat" | "voice"
   const [sidebarOpen,  setSidebarOpen]  = useState(true);
   const [outputOpen,   setOutputOpen]   = useState(false);
@@ -55,7 +56,7 @@ export default function EditorPage({
           language={language}
           onRun={() => {
             setOutputOpen(true);
-            runCode({ code, language, roomId });
+            runCode({ code, language, roomId, stdin });
           }}
           isRunning={isRunning}
         />
@@ -115,6 +116,7 @@ export default function EditorPage({
             clearOutput={clearOutput}
             isOpen={outputOpen}
             onToggle={() => setOutputOpen((o) => !o)}
+            onStdinChange={setStdin}
           />
         </div>
 
