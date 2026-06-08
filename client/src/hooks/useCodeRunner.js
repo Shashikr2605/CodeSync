@@ -46,7 +46,7 @@ export function useCodeRunner({ socketRef, joined }) {
     };
   }, [joined]);
 
-  function runCode({ code, language, roomId }) {
+  function runCode({ code, language, roomId, stdin = "" }) {
     if (!socketRef.current || isRunning) return;
     setIsRunning(true);
     setError(null);
