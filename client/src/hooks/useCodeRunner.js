@@ -45,12 +45,12 @@ export function useCodeRunner({ socketRef, joined }) {
     };
   }, [joined]);
 
-  function runCode({ code, language, roomId }) {
+  function runCode({ code, language, roomId, stdin = "" }) {
     if (!socketRef.current || isRunning) return;
     setIsRunning(true);
     setError(null);
     setOutput(null);
-    socketRef.current.emit("code:run", { code, language, roomId });
+    socketRef.current.emit("code:run", { code, language, roomId, stdin });
   }
 
   function clearOutput() {
