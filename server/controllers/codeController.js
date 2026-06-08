@@ -83,7 +83,7 @@ async function runViaWandbox(sourceCode, language) {
 }
 
 // ── Piston execution ─────────────────────────────────────────────────────────
-async function runViaPiston(sourceCode, language, stdin = stdin) {
+async function runViaPiston(sourceCode, language, stdin = "") {
   const lang = PISTON_LANGS[language];
   const res  = await axios.post(
     PISTON_URL,
@@ -91,7 +91,7 @@ async function runViaPiston(sourceCode, language, stdin = stdin) {
       language: lang.language,
       version:  lang.version,
       files:    [{ name: "main", content: sourceCode }],
-      stdin:    "",
+      stdin:    stdin,
     },
     { headers: { "Content-Type": "application/json" }, timeout: 20_000 }
   );
@@ -120,7 +120,7 @@ async function runViaCodex(sourceCode, language, stdin = "") {
   const body = new URLSearchParams();
   body.append("code",     sourceCode);
   body.append("language", lang);
-  body.append("input", "stdin");
+  body.append("input", stdin);
 
   const res = await axios.post(CODEX_URL, body.toString(), {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
