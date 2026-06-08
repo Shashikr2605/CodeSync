@@ -2,9 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 
 export function useCodeRunner({ socketRef, joined }) {
-  const [output, setOutput]       = useState(null);
+  const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
-  const [error, setError]         = useState(null);
+  const [error, setError] = useState(null);
+  const [stdin, setStdin] = useState("");
 
   // Use a ref to track whether listeners are attached to avoid stale closures
   const listenersAttached = useRef(false);
@@ -50,7 +51,7 @@ export function useCodeRunner({ socketRef, joined }) {
     setIsRunning(true);
     setError(null);
     setOutput(null);
-    socketRef.current.emit("code:run", { code, language, roomId });
+    socketRef.current.emit("code:run", { code, language, roomId, stdin });
   }
 
   function clearOutput() {
@@ -58,5 +59,5 @@ export function useCodeRunner({ socketRef, joined }) {
     setError(null);
   }
 
-  return { runCode, output, isRunning, error, clearOutput };
+  return { runCode, output, isRunning, error, clearOutput, stdin, setStdin };
 }

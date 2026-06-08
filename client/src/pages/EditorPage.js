@@ -2,13 +2,13 @@
 import { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 
-import TopBar      from "../components/TopBar";
+import TopBar from "../components/TopBar";
 import CursorPanel from "../components/CursorPanel";
 import CursorLabel from "../components/CursorLabel";
-import StatusBar   from "../components/StatusBar";
-import ChatPanel   from "../components/Chat/ChatPanel";
-import VoicePanel  from "../components/VoiceChat/VoicePanel";
-import RunButton   from "../components/Toolbar/RunButton";
+import StatusBar from "../components/StatusBar";
+import ChatPanel from "../components/Chat/ChatPanel";
+import VoicePanel from "../components/VoiceChat/VoicePanel";
+import RunButton from "../components/Toolbar/RunButton";
 import OutputPanel from "../components/Output/OutputPanel";
 
 export default function EditorPage({
@@ -24,11 +24,11 @@ export default function EditorPage({
   // Voice props
   isInVoice, isMuted, joinVoice, leaveVoice, toggleMute, voiceParticipants,
   // Code runner props
-  runCode, output, isRunning, codeError, clearOutput,
+  runCode, output, isRunning, codeError, clearOutput, stdin, setStdin,
 }) {
-  const [sidebarTab,   setSidebarTab]   = useState("chat"); // "chat" | "voice"
-  const [sidebarOpen,  setSidebarOpen]  = useState(true);
-  const [outputOpen,   setOutputOpen]   = useState(false);
+  const [sidebarTab, setSidebarTab] = useState("chat"); // "chat" | "voice"
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [outputOpen, setOutputOpen] = useState(false);
 
   // Auto-open output panel when execution finishes
   useEffect(() => {
@@ -115,6 +115,8 @@ export default function EditorPage({
             clearOutput={clearOutput}
             isOpen={outputOpen}
             onToggle={() => setOutputOpen((o) => !o)}
+            stdin={stdin}
+            setStdin={setStdin}
           />
         </div>
 
@@ -123,7 +125,7 @@ export default function EditorPage({
           <div className="sidebar">
             <div className="sidebar-tabs">
               <button
-                className={`sidebar-tab ${sidebarTab === "chat"  ? "sidebar-tab-active" : ""}`}
+                className={`sidebar-tab ${sidebarTab === "chat" ? "sidebar-tab-active" : ""}`}
                 onClick={() => setSidebarTab("chat")}
               >
                 💬 Chat

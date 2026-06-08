@@ -1,5 +1,5 @@
 // Component: terminal-style output panel (View layer)
-export default function OutputPanel({ output, error, isRunning, clearOutput, isOpen, onToggle }) {
+export default function OutputPanel({ output, error, isRunning, clearOutput, isOpen, onToggle, stdin, setStdin }) {
   return (
     <div className={`output-panel ${isOpen ? "output-panel-open" : ""}`}>
       <div className="output-header" onClick={onToggle}>
@@ -21,6 +21,18 @@ export default function OutputPanel({ output, error, isRunning, clearOutput, isO
 
       {isOpen && (
         <div className="output-body">
+          {/* Stdin input */}
+          <div className="output-section">
+            <div className="output-section-label output-label-blue">Stdin Input</div>
+            <textarea
+              className="output-stdin"
+              placeholder="Type program input here (one value per line)…"
+              value={stdin}
+              onChange={(e) => setStdin(e.target.value)}
+              rows={3}
+              spellCheck={false}
+            />
+          </div>
           {isRunning && (
             <div className="output-loading">
               <span className="run-spinner" /> Executing…
@@ -61,7 +73,7 @@ export default function OutputPanel({ output, error, isRunning, clearOutput, isO
                 <div className="output-line output-stdout">(no output)</div>
               )}
               <div className="output-meta">
-                {output.time   && <span>⏱ {output.time}s</span>}
+                {output.time && <span>⏱ {output.time}s</span>}
                 {output.memory && <span>💾 {output.memory} KB</span>}
                 <span className={output.status === "Accepted" ? "output-ok-badge" : "output-error-badge"}>
                   {output.status}
