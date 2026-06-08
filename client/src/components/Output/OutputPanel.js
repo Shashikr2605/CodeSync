@@ -1,5 +1,13 @@
-// Component: terminal-style output panel (View layer)
-export default function OutputPanel({ output, error, isRunning, clearOutput, isOpen, onToggle }) {
+import { useState } from "react";
+
+export default function OutputPanel({ output, error, isRunning, clearOutput, isOpen, onToggle, onStdinChange }) {
+  const [stdin, setStdin] = useState("");
+
+  function handleStdinChange(e) {
+    setStdin(e.target.value);
+    onStdinChange(e.target.value);
+  }
+
   return (
     <div className={`output-panel ${isOpen ? "output-panel-open" : ""}`}>
       <div className="output-header" onClick={onToggle}>
@@ -21,6 +29,33 @@ export default function OutputPanel({ output, error, isRunning, clearOutput, isO
 
       {isOpen && (
         <div className="output-body">
+
+          {/* ── Stdin input box ── */}
+          <div className="output-section">
+            <div className="output-section-label output-label-yellow">
+              Input (stdin)
+            </div>
+            <textarea
+              className="output-stdin"
+              placeholder="Enter program input here (one value per line)…"
+              value={stdin}
+              onChange={handleStdinChange}
+              rows={3}
+              style={{
+                width: "100%",
+                background: "var(--color-bg, #1e1e1e)",
+                color: "var(--color-text, #d4d4d4)",
+                border: "1px solid #444",
+                borderRadius: "4px",
+                padding: "6px 10px",
+                fontFamily: "monospace",
+                fontSize: "13px",
+                resize: "vertical",
+                outline: "none",
+              }}
+            />
+          </div>
+
           {isRunning && (
             <div className="output-loading">
               <span className="run-spinner" /> Executing…
