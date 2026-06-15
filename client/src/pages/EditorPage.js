@@ -55,7 +55,7 @@ export default function EditorPage({
           language={language}
           onRun={() => {
             setOutputOpen(true);
-            runCode({ code, language, roomId });
+            runCode({ code, language, roomId, stdin });
           }}
           isRunning={isRunning}
         />
