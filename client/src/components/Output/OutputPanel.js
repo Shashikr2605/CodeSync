@@ -1,17 +1,31 @@
-// Component: terminal-style output panel (View layer)
-export default function OutputPanel({ output, error, isRunning, clearOutput, isOpen, onToggle, stdin, setStdin }) {
+// Component: terminal-style output panel with synced stdin and run-state (View layer)
+export default function OutputPanel({
+  output, error, isRunning, clearOutput,
+  isOpen, onToggle,
+  stdin, setStdin,
+  runnerName,   // who triggered the current run (null if idle)
+  myUsername,   // the local user's name
+}) {
+  const isRemoteRun = isRunning && runnerName && runnerName !== myUsername;
+
   return (
     <div className={`output-panel ${isOpen ? "output-panel-open" : ""}`}>
       <div className="output-header" onClick={onToggle}>
         <span className="output-title">
           <span className="output-icon">⬛</span> Output
           {isRunning && <span className="output-running-badge">Running…</span>}
-          {error && <span className="output-error-badge">Error</span>}
+          {error && <span className="output-error-badge">Runtime Error</span>}
           {output && !error && <span className="output-ok-badge">{output.status}</span>}
         </span>
         <div className="output-header-actions">
-          {(output || error) && (
-            <button className="output-clear-btn" onClick={(e) => { e.stopPropagation(); clearOutput(); }}>
+          {isRunning && runnerName && (
+            <span className="runner-badge">▶ {runnerName}</span>
+          )}
+          {(output || error) && !isRunning && (
+            <button
+              className="output-clear-btn"
+              onClick={(e) => { e.stopPropagation(); clearOutput(); }}
+            >
               Clear
             </button>
           )}
@@ -21,18 +35,25 @@ export default function OutputPanel({ output, error, isRunning, clearOutput, isO
 
       {isOpen && (
         <div className="output-body">
-          {/* Stdin input */}
+          {/* Stdin input — synced across room, read-only if someone else is running */}
           <div className="output-section">
-            <div className="output-section-label output-label-blue">Stdin Input</div>
+            <div className="output-section-label output-label-blue">
+              Stdin Input
+              {isRemoteRun && (
+                <span className="stdin-synced-tag"> · synced from {runnerName}</span>
+              )}
+            </div>
             <textarea
-              className="output-stdin"
+              className={`output-stdin ${isRemoteRun ? "output-stdin-readonly" : ""}`}
               placeholder="Type program input here (one value per line)…"
               value={stdin}
-              onChange={(e) => setStdin(e.target.value)}
+              onChange={(e) => !isRemoteRun && setStdin(e.target.value)}
+              readOnly={isRemoteRun}
               rows={3}
               spellCheck={false}
             />
           </div>
+
           {isRunning && (
             <div className="output-loading">
               <span className="run-spinner" /> Executing…

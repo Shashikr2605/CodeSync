@@ -919,3 +919,55 @@ html, body, #root {
   font-weight: 600;
   font-family: var(--font-ui);
 }
+
+/* ── Output stdin ────────────────────────────────────────────── */
+.output-stdin {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  color: var(--text);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.output-stdin:focus { border-color: var(--accent); }
+
+.output-stdin-readonly {
+  opacity: 0.65;
+  cursor: not-allowed;
+  border-color: var(--border);
+  background: var(--bg3);
+}
+
+/* ── Runner badge (shows who triggered the run) ──────────────── */
+.runner-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(232,134,58,0.15);
+  color: var(--accent2);
+  border: 1px solid rgba(232,134,58,0.3);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+  animation: fadeIn 0.2s ease;
+}
+
+/* ── Stdin sync tag ──────────────────────────────────────────── */
+.stdin-synced-tag {
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--accent2);
+  margin-left: 4px;
+  opacity: 0.8;
+}
+
+/* ── Output label blue (stdin) ───────────────────────────────── */
+.output-label-blue { color: #7AB4E0; }

@@ -39,7 +39,7 @@ module.exports = function (io) {
     socket.on("voice:ice-candidate", (data) => handleIceCandidate(socket, data));
     socket.on("voice:leave", (roomId) => handleVoiceLeave(io, socket, roomId));
 
-    socket.on("code:run", (data) => handleRunCode(socket, data));
+    socket.on("code:run", (data) => handleRunCode(io, socket, data));
 
     socket.on("disconnect", () => {
       cleanupVoice(io, socket);

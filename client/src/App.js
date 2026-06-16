@@ -45,7 +45,7 @@ export default function App() {
   const { isInVoice, isMuted, joinVoice, leaveVoice, toggleMute, participants: voiceParticipants } =
     useVoiceChat({ socketRef, roomId, joined });
 
-  const { runCode, output, isRunning, error: codeError, clearOutput, stdin, setStdin } =
+  const { runCode, output, isRunning, error: codeError, clearOutput, stdin, setStdin, runnerName } =
     useCodeRunner({ socketRef, joined });
 
   // ── Cursor color overlay ─────────────────────────────────────────
@@ -181,6 +181,7 @@ export default function App() {
       clearOutput={clearOutput}
       stdin={stdin}
       setStdin={setStdin}
+      runnerName={runnerName}
     />
   );
 }

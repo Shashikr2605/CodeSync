@@ -24,7 +24,7 @@ export default function EditorPage({
   // Voice props
   isInVoice, isMuted, joinVoice, leaveVoice, toggleMute, voiceParticipants,
   // Code runner props
-  runCode, output, isRunning, codeError, clearOutput, stdin, setStdin,
+  runCode, output, isRunning, codeError, clearOutput, stdin, setStdin, runnerName,
 }) {
   const [sidebarTab, setSidebarTab] = useState("chat"); // "chat" | "voice"
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -55,7 +55,7 @@ export default function EditorPage({
           language={language}
           onRun={() => {
             setOutputOpen(true);
-            runCode({ code, language, roomId, stdin });
+            runCode({ code, language, roomId, stdin, username });
           }}
           isRunning={isRunning}
         />
@@ -117,6 +117,8 @@ export default function EditorPage({
             onToggle={() => setOutputOpen((o) => !o)}
             stdin={stdin}
             setStdin={setStdin}
+            runnerName={runnerName}
+            myUsername={username}
           />
         </div>
 
