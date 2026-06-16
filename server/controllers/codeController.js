@@ -1,9 +1,8 @@
 require("dotenv").config();
 const axios = require("axios");
 
-// ── Provider 1: Judge0 (primary — self-hosted via docker-compose) ─────────────
+// ── Provider 1: Judge0 (self-hosted via docker-compose) ───────────────────────
 const JUDGE0_URL = process.env.JUDGE0_URL || "http://localhost:2358";
-// Judge0 language IDs: https://github.com/judge0/judge0/blob/master/docs/api/judge0-api.yaml
 const JUDGE0_LANG_IDS = {
   javascript: 93, // Node.js 18.15.0
   python:     71, // Python 3.8.1
@@ -12,7 +11,17 @@ const JUDGE0_LANG_IDS = {
   c:          50, // C (GCC 9.2.0)
 };
 
-// ── Provider 2: Wandbox (first fallback) ──────────────────────────────────────
+// ── Provider 2: Piston (emkc.org — very reliable, no API key) ────────────────
+const PISTON_URL = "https://emkc.org/api/v2/piston/execute";
+const PISTON_LANGS = {
+  javascript: { language: "javascript", version: "18.15.0" },
+  python:     { language: "python",     version: "3.10.0"  },
+  java:       { language: "java",       version: "15.0.2"  },
+  cpp:        { language: "c++",        version: "10.2.0"  },
+  c:          { language: "c",          version: "10.2.0"  },
+};
+
+// ── Provider 3: Wandbox (second fallback) ─────────────────────────────────────
 const WANDBOX_URL = "https://wandbox.org/api/compile.json";
 const WANDBOX_LANGS = {
   javascript: "nodejs-20.17.0",
@@ -22,7 +31,7 @@ const WANDBOX_LANGS = {
   c:          "gcc-13.2.0-c",
 };
 
-// ── Provider 3: Codex (last resort) ──────────────────────────────────────────
+// ── Provider 4: Codex (last resort) ──────────────────────────────────────────
 const CODEX_URL = "https://api.codex.jaagrav.in";
 const CODEX_LANGS = {
   javascript: "js",
@@ -32,7 +41,7 @@ const CODEX_LANGS = {
   c:          "c",
 };
 
-// ── Infrastructure error patterns that mean the provider itself failed ────────
+// ── Infrastructure error patterns (treat as provider failure, not user error) ─
 const INFRA_ERROR_PATTERNS = [
   "OCI runtime error",
   "crun: clone",
@@ -42,7 +51,9 @@ const INFRA_ERROR_PATTERNS = [
 ];
 
 function isInfraError(text = "") {
-  return INFRA_ERROR_PATTERNS.some((p) => text.toLowerCase().includes(p.toLowerCase()));
+  return INFRA_ERROR_PATTERNS.some((p) =>
+    text.toLowerCase().includes(p.toLowerCase())
+  );
 }
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
@@ -69,16 +80,14 @@ function checkRateLimit(roomId) {
 async function runViaJudge0(sourceCode, language, stdin = "") {
   const language_id = JUDGE0_LANG_IDS[language];
 
-  // Submit
   const submitRes = await axios.post(
     `${JUDGE0_URL}/submissions?base64_encoded=false&wait=false`,
     { source_code: sourceCode, language_id, stdin },
-    { headers: { "Content-Type": "application/json" }, timeout: 10_000 }
+    { headers: { "Content-Type": "application/json" }, timeout: 8_000 }
   );
   const token = submitRes.data.token;
   if (!token) throw new Error("Judge0: no token returned");
 
-  // Poll for result (max 20s)
   for (let i = 0; i < 20; i++) {
     await new Promise((r) => setTimeout(r, 1000));
     const res = await axios.get(
@@ -87,30 +96,53 @@ async function runViaJudge0(sourceCode, language, stdin = "") {
     );
     const d = res.data;
     const statusId = d.status?.id;
-
-    // 1 = In Queue, 2 = Processing — keep polling
-    if (statusId <= 2) continue;
+    if (statusId <= 2) continue; // In Queue / Processing
 
     const compile_output = d.compile_output || "";
-    const stderr         = d.stderr || "";
+    const stderr = d.stderr || "";
 
-    // Detect infra errors and propagate as thrown errors so fallback kicks in
     if (isInfraError(compile_output) || isInfraError(stderr)) {
       throw new Error(`Judge0 infra error: ${compile_output || stderr}`);
     }
 
     let status = "Accepted";
-    if (statusId === 6)       status = "Compilation Error";
-    else if (statusId !== 3)  status = "Runtime Error";
+    if (statusId === 6)      status = "Compilation Error";
+    else if (statusId !== 3) status = "Runtime Error";
 
-    return {
-      stdout:         d.stdout || "",
-      stderr,
-      compile_output,
-      status,
-    };
+    return { stdout: d.stdout || "", stderr, compile_output, status };
   }
   throw new Error("Judge0: execution timed out");
+}
+
+// ── Piston execution ──────────────────────────────────────────────────────────
+async function runViaPiston(sourceCode, language, stdin = "") {
+  const { language: lang, version } = PISTON_LANGS[language];
+
+  const res = await axios.post(
+    PISTON_URL,
+    {
+      language: lang,
+      version,
+      files: [{ content: sourceCode }],
+      stdin: stdin || "",
+    },
+    { headers: { "Content-Type": "application/json" }, timeout: 20_000 }
+  );
+
+  const run     = res.data.run     || {};
+  const compile = res.data.compile || {};
+
+  const stdout         = run.stdout || "";
+  const stderr         = run.stderr || compile.stderr || "";
+  const compile_output = compile.output || "";
+
+  // Piston uses exit codes: 0 = success
+  const exitCode = run.code ?? 0;
+  let status = "Accepted";
+  if (compile_output && compile.code !== 0) status = "Compilation Error";
+  else if (exitCode !== 0)                  status = "Runtime Error";
+
+  return { stdout, stderr, compile_output, status };
 }
 
 // ── Wandbox execution ─────────────────────────────────────────────────────────
@@ -122,11 +154,10 @@ async function runViaWandbox(sourceCode, language, stdin = "") {
     { headers: { "Content-Type": "application/json" }, timeout: 25_000 }
   );
 
-  const data = res.data || {};
+  const data       = res.data || {};
   const compileMsg = data.compiler_message || data.compiler_error || "";
   const programErr = data.program_error || "";
 
-  // If Wandbox returned an infrastructure error, throw so Codex fallback fires
   if (isInfraError(compileMsg) || isInfraError(programErr)) {
     throw new Error(`Wandbox infra error: ${compileMsg || programErr}`);
   }
@@ -180,37 +211,30 @@ async function handleRunCode(io, socket, { code, language, roomId, stdin = "", u
     });
   }
 
-  // Broadcast to ALL room members (including sender) that execution has started
+  // Broadcast to ALL room members that execution has started
   io.to(roomId).emit("code:running", { username, stdin });
 
-  try {
-    let result;
+  const providers = [
+    { name: "Judge0",  fn: () => runViaJudge0(code, language, stdin)  },
+    { name: "Piston",  fn: () => runViaPiston(code, language, stdin)  },
+    { name: "Wandbox", fn: () => runViaWandbox(code, language, stdin) },
+    { name: "Codex",   fn: () => runViaCodex(code, language, stdin)   },
+  ];
 
-    // 1️⃣ Judge0 (self-hosted, fastest)
+  let lastErr;
+  for (const { name, fn } of providers) {
     try {
-      result = await runViaJudge0(code, language, stdin);
-      console.log("[CodeRunner] Judge0 succeeded");
-    } catch (judge0Err) {
-      console.warn(`[CodeRunner] Judge0 failed (${judge0Err.message}), trying Wandbox…`);
-
-      // 2️⃣ Wandbox
-      try {
-        result = await runViaWandbox(code, language, stdin);
-        console.log("[CodeRunner] Wandbox succeeded");
-      } catch (wandboxErr) {
-        console.warn(`[CodeRunner] Wandbox failed (${wandboxErr.message}), trying Codex…`);
-
-        // 3️⃣ Codex (last resort)
-        result = await runViaCodex(code, language, stdin);
-        console.log("[CodeRunner] Codex succeeded");
-      }
+      const result = await fn();
+      console.log(`[CodeRunner] ${name} succeeded`);
+      return io.to(roomId).emit("code:output", { ...result, time: null, memory: null });
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[CodeRunner] ${name} failed: ${err.message}`);
     }
-
-    io.to(roomId).emit("code:output", { ...result, time: null, memory: null });
-  } catch (err) {
-    console.error("[CodeRunner] All providers failed:", err.message);
-    io.to(roomId).emit("code:error", { message: `Code execution failed: ${err.message}` });
   }
+
+  console.error("[CodeRunner] All providers failed:", lastErr.message);
+  io.to(roomId).emit("code:error", { message: `Code execution failed: ${lastErr.message}` });
 }
 
 module.exports = { handleRunCode };
