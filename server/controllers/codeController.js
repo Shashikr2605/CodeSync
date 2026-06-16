@@ -88,7 +88,7 @@ async function runViaCodex(sourceCode, language, stdin = "") {
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
-async function handleRunCode(socket, { code, language, roomId, stdin = "" }) {
+async function handleRunCode(io, socket, { code, language, roomId, stdin = "", username = "" }) {
   if (!WANDBOX_LANGS[language]) {
     return socket.emit("code:error", { message: `Unsupported language: ${language}` });
   }
@@ -98,6 +98,9 @@ async function handleRunCode(socket, { code, language, roomId, stdin = "" }) {
       message: "Rate limit reached: max 10 runs/minute per room. Please wait.",
     });
   }
+
+  // Broadcast to ALL room members (including sender) that execution has started
+  io.to(roomId).emit("code:running", { username, stdin });
 
   try {
     let result;
@@ -117,10 +120,10 @@ async function handleRunCode(socket, { code, language, roomId, stdin = "" }) {
       }
     }
 
-    socket.emit("code:output", { ...result, time: null, memory: null });
+    io.to(roomId).emit("code:output", { ...result, time: null, memory: null });
   } catch (err) {
     console.error("[CodeRunner] All providers failed:", err.message);
-    socket.emit("code:error", { message: `Code execution failed: ${err.message}` });
+    io.to(roomId).emit("code:error", { message: `Code execution failed: ${err.message}` });
   }
 }
 
