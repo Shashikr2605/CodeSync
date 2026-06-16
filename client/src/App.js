@@ -3,31 +3,31 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import "./App.css";
 
 import { WARM_THEME, STARTER_CODE } from "./config/editorConfig";
-import { generateId, getInitials }   from "./utils/helpers";
-import { useSocket }                 from "./hooks/useSocket";
-import { useEditorDecorations }      from "./hooks/useEditorDecorations";
-import { useChat }                   from "./hooks/useChat";
-import { useVoiceChat }              from "./hooks/useVoiceChat";
-import { useCodeRunner }             from "./hooks/useCodeRunner";
-import JoinPage                      from "./pages/JoinPage";
-import EditorPage                    from "./pages/EditorPage";
+import { generateId, getInitials } from "./utils/helpers";
+import { useSocket } from "./hooks/useSocket";
+import { useEditorDecorations } from "./hooks/useEditorDecorations";
+import { useChat } from "./hooks/useChat";
+import { useVoiceChat } from "./hooks/useVoiceChat";
+import { useCodeRunner } from "./hooks/useCodeRunner";
+import JoinPage from "./pages/JoinPage";
+import EditorPage from "./pages/EditorPage";
 
 export default function App() {
   // ── State ───────────────────────────────────────────────────────
-  const [joined,        setJoined]        = useState(false);
-  const [username,      setUsername]      = useState("");
-  const [roomInput,     setRoomInput]     = useState("");
-  const [roomId,        setRoomId]        = useState("");
-  const [myColor,       setMyColor]       = useState("#E8863A");
-  const [code,          setCode]          = useState(STARTER_CODE);
-  const [users,         setUsers]         = useState([]);
+  const [joined, setJoined] = useState(false);
+  const [username, setUsername] = useState("");
+  const [roomInput, setRoomInput] = useState("");
+  const [roomId, setRoomId] = useState("");
+  const [myColor, setMyColor] = useState("#E8863A");
+  const [code, setCode] = useState(STARTER_CODE);
+  const [users, setUsers] = useState([]);
   const [remoteCursors, setRemoteCursors] = useState({});
-  const [copied,        setCopied]        = useState(false);
-  const [language,      setLanguage]      = useState("javascript");
+  const [copied, setCopied] = useState(false);
+  const [language, setLanguage] = useState("javascript");
 
   // ── Refs ────────────────────────────────────────────────────────
-  const editorRef      = useRef(null);
-  const monacoRef      = useRef(null);
+  const editorRef = useRef(null);
+  const monacoRef = useRef(null);
   const decorationsRef = useRef([]);
   const cursorThrottle = useRef(null);
 
@@ -45,7 +45,7 @@ export default function App() {
   const { isInVoice, isMuted, joinVoice, leaveVoice, toggleMute, participants: voiceParticipants } =
     useVoiceChat({ socketRef, roomId, joined });
 
-  const { runCode, output, isRunning, error: codeError, clearOutput } =
+  const { runCode, output, isRunning, error: codeError, clearOutput, stdin, setStdin } =
     useCodeRunner({ socketRef, joined });
 
   // ── Cursor color overlay ─────────────────────────────────────────
@@ -83,15 +83,15 @@ export default function App() {
         const selection = editor.getSelection();
         socketRef.current.emit("cursor_move", {
           roomId,
-          line:   e.position.lineNumber,
+          line: e.position.lineNumber,
           column: e.position.column,
           selection: selection
             ? {
-                startLine: selection.startLineNumber,
-                startCol:  selection.startColumn,
-                endLine:   selection.endLineNumber,
-                endCol:    selection.endColumn,
-              }
+              startLine: selection.startLineNumber,
+              startCol: selection.startColumn,
+              endLine: selection.endLineNumber,
+              endCol: selection.endColumn,
+            }
             : null,
         });
       }, 30);
@@ -179,6 +179,8 @@ export default function App() {
       isRunning={isRunning}
       codeError={codeError}
       clearOutput={clearOutput}
+      stdin={stdin}
+      setStdin={setStdin}
     />
   );
 }
