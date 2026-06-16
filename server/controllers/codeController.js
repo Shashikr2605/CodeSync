@@ -1,7 +1,7 @@
 require("dotenv").config();
 const axios = require("axios");
 
-// ── Provider 1: Wandbox ──────────────────────────────────────────────────────
+// ── Provider 1: Wandbox (primary) ────────────────────────────────────────────
 const WANDBOX_URL = "https://wandbox.org/api/compile.json";
 const WANDBOX_LANGS = {
   javascript: "nodejs-20.17.0",
@@ -11,17 +11,7 @@ const WANDBOX_LANGS = {
   c: "gcc-13.2.0-c",
 };
 
-// ── Provider 2: Piston ───────────────────────────────────────────────────────
-const PISTON_URL = "https://emkc.org/api/v2/piston/execute";
-const PISTON_LANGS = {
-  javascript: { language: "node", version: "*" },
-  python: { language: "python", version: "*" },
-  java: { language: "java", version: "*" },
-  cpp: { language: "c++", version: "*" },
-  c: { language: "c", version: "*" },
-};
-
-// ── Provider 3: Codex ────────────────────────────────────────────────────────
+// ── Provider 2: Codex (fallback) ─────────────────────────────────────────────
 const CODEX_URL = "https://api.codex.jaagrav.in";
 const CODEX_LANGS = {
   javascript: "js",
@@ -74,36 +64,6 @@ async function runViaWandbox(sourceCode, language, stdin = "") {
   };
 }
 
-// ── Piston execution ─────────────────────────────────────────────────────────
-async function runViaPiston(sourceCode, language, stdin = "") {
-  const lang = PISTON_LANGS[language];
-  const res = await axios.post(
-    PISTON_URL,
-    {
-      language: lang.language,
-      version: lang.version,
-      files: [{ name: "main", content: sourceCode }],
-      stdin: stdin || "",
-    },
-    { headers: { "Content-Type": "application/json" }, timeout: 20_000 }
-  );
-
-  const run = res.data.run || {};
-  const compile = res.data.compile || {};
-  const exitCode = run.code ?? 0;
-
-  let status = "Accepted";
-  if (compile.code !== undefined && compile.code !== 0) status = "Compilation Error";
-  else if (exitCode !== 0) status = "Runtime Error";
-
-  return {
-    stdout: run.stdout || "",
-    stderr: run.stderr || "",
-    compile_output: compile.stderr || compile.stdout || "",
-    status,
-  };
-}
-
 // ── Codex fallback ───────────────────────────────────────────────────────────
 async function runViaCodex(sourceCode, language, stdin = "") {
   const lang = CODEX_LANGS[language];
@@ -128,9 +88,8 @@ async function runViaCodex(sourceCode, language, stdin = "") {
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
-async function handleRunCode(io, socket, { code, language, roomId, stdin = "", username = "Someone" }) {
+async function handleRunCode(socket, { code, language, roomId, stdin = "" }) {
   if (!WANDBOX_LANGS[language]) {
-    // Only the runner sees unsupported-language errors
     return socket.emit("code:error", { message: `Unsupported language: ${language}` });
   }
 
@@ -140,33 +99,28 @@ async function handleRunCode(io, socket, { code, language, roomId, stdin = "", u
     });
   }
 
-  // ── Broadcast "running" to the whole room ──────────────────
-  io.to(roomId).emit("code:running", { username, stdin });
-
   try {
     let result;
 
     try {
-      result = await runViaPiston(code, language, stdin);
-      console.log("[CodeRunner] Piston succeeded");
-    } catch (pistonErr) {
-      console.warn(`[CodeRunner] Piston failed (${pistonErr.message}), trying Wandbox…`);
+      result = await runViaWandbox(code, language, stdin);
+      console.log("[CodeRunner] Wandbox succeeded");
+    } catch (wandboxErr) {
+      console.warn(`[CodeRunner] Wandbox failed (${wandboxErr.message}), retrying once…`);
       try {
         result = await runViaWandbox(code, language, stdin);
-        console.log("[CodeRunner] Wandbox succeeded");
-      } catch (wandboxErr) {
-        console.warn(`[CodeRunner] Wandbox failed (${wandboxErr.message}), trying Codex…`);
+        console.log("[CodeRunner] Wandbox succeeded on retry");
+      } catch (retryErr) {
+        console.warn(`[CodeRunner] Wandbox retry failed (${retryErr.message}), trying Codex…`);
         result = await runViaCodex(code, language, stdin);
         console.log("[CodeRunner] Codex succeeded");
       }
     }
 
-    // ── Broadcast output to the whole room ─────────────────
-    io.to(roomId).emit("code:output", { ...result, time: null, memory: null });
+    socket.emit("code:output", { ...result, time: null, memory: null });
   } catch (err) {
     console.error("[CodeRunner] All providers failed:", err.message);
-    // ── Broadcast error to the whole room ──────────────────
-    io.to(roomId).emit("code:error", { message: `Code execution failed: ${err.message}` });
+    socket.emit("code:error", { message: `Code execution failed: ${err.message}` });
   }
 }
 
