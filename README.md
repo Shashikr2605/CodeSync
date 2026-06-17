@@ -15,41 +15,35 @@ A real-time collaborative code editor with **Text Chat**, **Voice Chat (WebRTC)*
 - 🌐 **Language switcher** — JavaScript, Python, Java, C++, C
 - 💬 **Text Chat** — room-scoped chat with message history (last 50 messages)
 - 🎙 **Voice Chat** — WebRTC peer-to-peer audio with speaking detection indicators
-- ▶ **Run Code** — execute code with stdin support
+- ▶ **Run Code** — execute code with stdin support via self-hosted Judge0
 - 📥 **Stdin Input** — pass custom input to programs that use `input()` / `scanf`
 
 ---
 
 ## ⚙️ Code Execution
 
-CodeSync supports two execution modes:
+CodeSync runs a **self-hosted Judge0 instance via Docker** — both locally and in production on Render.
 
-### 🖥 Local Development — Judge0 via Docker
-Runs a self-hosted [Judge0](https://github.com/judge0/judge0) instance locally using Docker Compose with PostgreSQL and Redis.
+### Architecture
 
 ```
-Docker Compose
-├── judge0/judge0:1.13.0   — API server (port 2358) + workers
+Judge0 (Docker)
+├── judge0/judge0:1.13.0   — API server (port 2358) + worker containers
 ├── postgres:13            — submission database
 └── redis:6                — job queue
 ```
 
-Set in `server/.env`:
-```env
-PORT=5000
-JUDGE0_URL=http://localhost:2358
-```
+Judge0 spins up an **isolated container per code submission** — fully sandboxed, no shared state between runs.
 
-### 🌍 Production (Render) — Free API Fallback Chain
-Since Docker is not available on Render's free tier, the live site uses a three-provider fallback chain — no API key or infrastructure required:
+### Three-Provider Fallback (if Judge0 is unavailable)
 
-| Priority | Provider | URL |
+If Judge0 is down or unreachable, the server automatically falls back:
+
+| Priority | Provider | Description |
 |---|---|---|
-| 1st | **Piston** | emkc.org/api/v2/piston |
-| 2nd | **Wandbox** | wandbox.org |
-| 3rd | **Codex** | api.codex.jaagrav.in |
-
-If one provider fails, the next is tried automatically. All support **stdin input**.
+| 1st | **Piston** | emkc.org — free, no auth |
+| 2nd | **Wandbox** | wandbox.org — free, many compilers |
+| 3rd | **Codex** | api.codex.jaagrav.in — free fallback |
 
 ### Supported Languages
 
@@ -60,6 +54,20 @@ If one provider fails, the next is tried automatically. All support **stdin inpu
 | Java | OpenJDK 22 |
 | C++ | GCC 13 |
 | C | GCC 13 |
+
+---
+
+## 🌍 Production Deployment (Render)
+
+Three services deployed on Render:
+
+| Service | Runtime | Role |
+|---|---|---|
+| `CodeSync` | **Docker** | Self-hosted Judge0 execution engine |
+| `CodeSync-servers` | Node | Express + Socket.IO backend |
+| `CodeSync-clients` | Static | React frontend |
+
+All services auto-deploy on every push to `main`.
 
 ---
 
@@ -104,14 +112,14 @@ CodeSync/
     │   └── roomModel.js
     ├── controllers/
     │   ├── socketController.js
-    │   ├── codeController.js            # Multi-provider execution engine
+    │   ├── codeController.js            # Judge0 + fallback chain
     │   ├── chatController.js
     │   └── voiceController.js
     ├── routes/
     │   └── healthRoutes.js
     ├── middleware/
     │   └── errorHandler.js
-    ├── docker-compose.yml               # Local Judge0 setup
+    ├── docker-compose.yml               # Judge0 + PostgreSQL + Redis
     ├── app.js
     ├── socket.js
     └── index.js
@@ -124,7 +132,7 @@ CodeSync/
 ### Prerequisites
 - Node.js v16+
 - npm
-- Docker + Docker Compose (for local code execution)
+- Docker + Docker Compose
 
 ### 1. Start Judge0 via Docker
 
@@ -133,7 +141,7 @@ cd server
 docker-compose up -d
 ```
 
-Wait ~30 seconds for Judge0 to initialize, then verify:
+Wait ~30 seconds, then verify Judge0 is running:
 ```
 http://localhost:2358/system_info
 ```
@@ -156,36 +164,14 @@ cd ../client && npm install
 ### 4. Run the App
 
 ```bash
-# Terminal 1
+# Terminal 1 — backend
 cd server && node index.js
 
-# Terminal 2
+# Terminal 2 — frontend
 cd client && npm start
 ```
 
 App runs at **http://localhost:3000**
-
----
-
-## 🌍 Deployment (Render — Free Tier)
-
-### Backend — Web Service
-| Setting | Value |
-|---|---|
-| Root Directory | `server` |
-| Build Command | `npm install` |
-| Start Command | `node index.js` |
-| Environment Variable | `PORT=5000` |
-
-### Frontend — Static Site
-| Setting | Value |
-|---|---|
-| Root Directory | `client` |
-| Build Command | `npm install && npm run build` |
-| Publish Directory | `build` |
-| Environment Variable | `REACT_APP_SERVER_URL=https://your-server.onrender.com` |
-
-> On Render, code execution automatically falls back to Piston → Wandbox → Codex since Docker is unavailable on the free tier.
 
 ---
 
